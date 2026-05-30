@@ -27,3 +27,6 @@
 */*~*
 *.tmp
 */*.tmp
+*/*.secret
+.DS_Store
+*/.DS_Store
