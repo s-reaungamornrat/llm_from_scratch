@@ -17,6 +17,9 @@ class GPTModel(nn.Module):
         self.final_norm=LayerNorm(cfg['emb_dim'])
         self.out_head=nn.Linear(cfg['emb_dim'], cfg['vocab_size'], bias=False)
 
+    def get_num_layers(self): return len(self.trf_blocks)
+    def no_weight_decay(self): return {'pos_emb', 'tok_emb'}
+
     def forward(self, in_idx):
         """
         Args:
