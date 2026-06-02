@@ -1,5 +1,30 @@
 import math
 import torch
+import matplotlib.pyplot as plt
+
+def plot_values(epochs_seen, examples_seen, train_values, val_values, label='loss'):
+    """
+    Args:
+        epochs_seen (sequence): List of epochs with the same size as `train_values` and `val_values`
+        examples_seen (sequence): List of numbers of seen examples with the same size as `train_values` and `val_values`
+        train_values (sequence): List of train values, either losses or accuracies
+        val_values (sequence): List of validation values, either losses or accuracies
+        label (str): Label of values, either loss or accuracy
+    """
+    fig, ax1=plt.subplots(figsize=(5,3))
+
+    # plot training and validation values against epochs
+    ax1.plot(epochs_seen, train_values, label=f"Training {label}")
+    ax1.plot(epochs_seen, val_values, linestyle="-.", label=f"Validation {label}")
+    ax1.set_xlabel("Epochs")
+    ax1.set_ylabel(label.capitalize())
+    ax1.legend()
+
+    # create a second x-axis for examples seen
+    ax2=ax1.twiny() # create the 2nd x-axis sharing the same y
+    ax2.plot(examples_seen, train_values, alpha=0) # invisible plot for aligning ticks
+
+    fig.tight_layout()
 
 def calc_accuracy_loader(data_loader, model, device, num_batches=None):
     """Accuracy as the percentage of correct predictions"""
