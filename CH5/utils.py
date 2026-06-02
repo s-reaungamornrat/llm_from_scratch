@@ -6,6 +6,8 @@ from tiktoken.load import load_tiktoken_bpe
 
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 class Tokenizer:
     """Thin wrapper around tiktoken that keeps track of Llama-3 special IDs"""
@@ -254,4 +256,24 @@ def load_weights_into_llama3(model, param_config, params, use_name=False):
     else: 
         model.out_head.weight=model.tok_emb.weight
         print("Model uses weight tying")
-    
+
+def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
+    """
+    Args:
+        epochs_seen (sequence): Training epochs
+        tokens_seen (sequence): The number of tokens seen so far
+        train_losses (sequence[float]): Training losses
+        val_losses (sequence[float]): Validation losses
+    """
+    fig, ax1=plt.subplots(figsize=(5,3))
+    ax1.plot(epochs_seen, train_losses, label="Training loss")
+    ax1.plot(epochs_seen, val_losses, linestyle="-.", label="Validation loss")
+    ax1.set_xlabel("Epochs")
+    ax1.set_ylabel("Loss")
+    ax1.legend(loc="upper right")
+    # force the x-axis tick marks to only appears at integer values
+    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax2=ax1.twiny() # create a second x-axis that shared the same y-axis. To create the second y-axis, use twinx()
+    ax2.plot(tokens_seen, train_losses, alpha=0) # invisible plot for aligning ticks
+    ax2.set_xlabel('Tokens seen')
+    fig.tight_layout()
