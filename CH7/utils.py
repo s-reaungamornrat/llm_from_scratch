@@ -20,19 +20,21 @@ def check_if_running(process_name):
     return running
 
 
-def query_model(prompt, model='llama3', url="http://localhost:11434/api/chat"):
+def query_model(prompt, model='llama3', url="http://localhost:11434/api/chat", role='user', temperature=0.,top_p=None):
     # create the data payload as a dictionary
     data={
         "model":model, 
         "messages":[
-            {"role":"user", "content":prompt}
+            {"role":role, "content":prompt}
         ],
         "options":{# settings below are required for deterministic responses
             "seed":123,
-            "temperature":0,
+            "temperature":temperature,
             "num_ctx":2048
         }
     }
+    if top_p is not None: data['top_p']=top_p
+        
     # send the POST request
     response_data=None
     with requests.post(url, json=data, stream=True, timeout=30) as r:

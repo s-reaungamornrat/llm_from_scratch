@@ -7,6 +7,11 @@ from torch.utils.data import Dataset
 
 class InstructionDataset(Dataset):
     def __init__(self, data, tokenizer, mask_instruction=False):
+        """
+        Args:
+            data (dict): Dictionary with format {'instruction':..., 'input':..., 'output':..., }
+            mask_instruction (bool): Whether to mask the instruction part in target
+        """
         self.data=data
         self.mask_instruction=mask_instruction
         
@@ -27,7 +32,115 @@ class InstructionDataset(Dataset):
     def __getitem__(self, index): 
         return (self.encoded_texts[index],self.instruction_token_length[index]) if self.mask_instruction else self.encoded_texts[index]
     def __len__(self): return len(self.data)
+
+
+class PreferenceDataset(Dataset):
+    """Instead of a single output sequence/response, the class returns pairs of responses where one is preferred ('chosen') 
+    over the other ('rejected)"""
+    def __init__(self, data, tokenizer):
+        """
+        Args:
+            data (dict): Dictionary with format {'instruction':..., 'input':..., 'output':..., }
+            mask_instruction (bool): Whether to mask the instruction part in target
+        """
+        self.data=data
+
+        # pre-tokenize texts
+        self.encoded_texts=[]
+        for entry in data:
+            prompt=format_input(entry)
+            rejected_response=entry['rejected']
+            chosen_response=entry['chosen']
+
+            prompt_tokens=tokenizer.encode(prompt)
+            chosen_full_text=f"{prompt}\n\n### Response:\n{chosen_response}"
+            rejected_full_text=f"{prompt}\n\n### Response:\n{rejected_response}"
+            chosen_full_tokens=tokenizer.encode(chosen_full_text)
+            rejected_full_tokens=tokenizer.encode(rejected_full_text)
+
+            self.encoded_texts.append({'prompt':prompt_tokens,
+                                       'chosen':chosen_full_tokens,
+                                       'rejected':rejected_full_tokens})
+    
+    def __getitem__(self, index): return self.encoded_texts[index]
+    def __len__(self): return len(self.data)
+
         
+def preference_collate_fn(batch, pad_token_id=50256, allowed_max_length=None, mask_prompt_tokens=True, device=torch.device('cpu')):
+    """
+    Args:
+        batch (tuple[dict[str,list[int]]]): Sequence of data entry of the format {'prompt':list[int], 'chosen':list[int], 'rejected':list[int]}
+            where list[int] is a list of token indices. We note that 'chosen' and 'rejected' contain the tokens of 'prompt' and responses
+        pad_token_id (int): Token index of padding
+        allowed_max_length (int): Maximum length of tokens allowed. If provide, 'chosen' and 'rejected' token sequences will be truncated if
+            longer than this
+        mask_prompt_tokens (bool): Whether to mask the prompt (input/instruction into the model)
+        device (torch.device): Computing device
+    Returns:
+        (dict[str, Any]): Output containing the following
+            - 'prompt' (list[torch.Tensor]): List of varying-length instruction tokens (length=number of instructions)
+            - 'chosen' (torch.Tensor): A batch of instruction+chosen response of size (batch_size, n_tokens)
+            - 'rejected' (torch.Tensor): A batch of instruction+rejected response of size (batch_size, n_tokens)
+            - 'rejected_mask' (torch.Tensor): A batch of mask of size (batch_size, n_tokens) where 1 is for padding and
+                prompt tokens if `mask_prompt_tokens` is True
+            - 'chosen' (torch.Tensor): A batch of mask of size (batch_size, n_tokens) where 1 is for padding and
+                prompt tokens if `mask_prompt_tokens` is True
+                
+    Examples: Assuming 8 is the token id of '\n' 
+        >>> batch=({'prompt':[8,9,17,6,4],'chosen':[8,9,17,6,4,8,8,1,7,6,6], 'rejected':[8,9,17,6,4,8,8,1,2,3]},
+               {'prompt':[3,7,19,6,56,90],'chosen':[3,7,19,6,56,90,8,8,101,76,5,64,43,89], 'rejected':[3,7,19,6,56,90,8,8,1817,975,54]},
+               {'prompt':[7,5,54,89,60],'chosen':[7,5,54,89,60,8,8,120,76,54], 'rejected':[7,5,54,89,60,8,8,87,65,546,876,1090]},)
+        >>> batch_data=preference_collate_fn(batch, pad_token_id=50256, allowed_max_length=1024, mask_prompt_tokens=True, 
+                                         device=torch.device('mps'))
+                                 
+    """
+    # initialize lists to hold batch data
+    batch_data={
+        "prompt":[],
+        "chosen":[],
+        "rejected":[],
+        "rejected_mask":[],
+        "chosen_mask":[]
+    }
+    
+    # determine the longest sequence to set a common padding length
+    max_length_common=0
+    for key in ['chosen', 'rejected']:
+        current_max=max(len(item[key])+1 for item in batch)
+        max_length_common=max(max_length_common, current_max)
+    
+    # process each item in the batch
+    for item in batch:
+        prompt=torch.tensor(item['prompt'])
+        batch_data['prompt'].append(prompt)
+    
+        for key in ['chosen', 'rejected']:
+            # adjust padding according to the common max length
+            sequence=item[key]
+            padded=sequence+[pad_token_id]*(max_length_common-len(sequence))
+            mask=torch.ones(len(padded)).bool()
+    
+            # set mask for all padding tokens to False
+            mask[len(sequence):]=False
+    
+            # set mask for all input tokens to False
+            # set 2 more token-indices to False for the 2 newlines ("\n") tokens before "### Response" 
+            if mask_prompt_tokens: mask[:(prompt.shape[0]+2)]=False # i.e., mask is a selection mask for response tokens
+    
+            batch_data[key].append(torch.tensor(padded))
+            batch_data[f"{key}_mask"].append(mask)
+    
+    # final processing
+    for key in ['chosen', 'rejected', 'chosen_mask', 'rejected_mask']:
+        # stack all sequences into a tensor for the given key
+        tensor_stack=torch.stack(batch_data[key])
+    
+        # optionally truncate to maximum sequence length
+        if allowed_max_length is not None: tensor_stack=tensor_stack[:,:allowed_max_length]
+    
+        batch_data[key]=tensor_stack.to(device)
+    return batch_data  
+
 
 def _with_instruction_token_collate_fn(batch, pad_token_id=50256, ignore_index=-100, allowed_max_length=None, device='cpu'):
     """Form a batch of pairs of inputs and targets from a list of input tokens, without masking out instruction tokens
@@ -224,3 +337,18 @@ def format_input(entry):
     )
     input_text=f"\n\n### Input:\n{entry['input']}" if entry['input'] else ""
     return instruction_text+input_text
+
+def decode_tokens_from_batch(token_ids, tokenizer):
+    ids_in_python_list=token_ids.flatten().tolist()
+    return tokenizer.decode(ids_in_python_list)
+
+
+def extract_response(response_text, input_text):
+    """
+    Args:
+        response_text (str): Output from model with instruction and response 
+        input_text (str): Input to the model comprising instruction and/or input
+    Returns:
+        (str): Response after removing prompt formatting
+    """
+    return response_text[len(input_text):].replace("### Response:", "").strip()
