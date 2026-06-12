@@ -1,0 +1,1 @@
+- Test tokenizer whether it can tokenizer typical medical terms
