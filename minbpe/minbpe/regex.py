@@ -58,7 +58,7 @@ class RegexTokenizer(Tokenizer):
             for chunk_ids in ids:
                 # passing in stats will update it in place, adding up counts
                 get_stats(chunk_ids, stats)
-        
+            if not stats: break # no more frequent pairs
             # find the pair with the highest count
             pair=max(stats, key=stats.get)
             # mint a new token: assign it the next available id
@@ -75,6 +75,8 @@ class RegexTokenizer(Tokenizer):
         # save class variables
         self.merges=merges # used in encode()
         self.vocab=vocab # used in decode()
+        self.vocab_size=max(self.vocab.keys())+1
+        print(f"In regex.train : {max(vocab.keys())=}, {min(vocab.keys())=}")
 
     def _encode_chunk(self, text_bytes):
         """

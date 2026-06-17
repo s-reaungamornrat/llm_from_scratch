@@ -87,6 +87,8 @@ class Tokenizer:
             # write the version, pattern and merges, that's all that's needed
             f.write("minbpe v1\n")
             f.write(f"{self.pattern}\n")
+            # write the number of vocabularies
+            f.write(f"{self.vocab_size}\n")
             # write the special tokens, first the number of them, then each one
             f.write(f"{len(self.special_tokens)}\n")
             for special, idx in self.special_tokens.items():
@@ -123,12 +125,15 @@ class Tokenizer:
         merges={}
         special_tokens={}
         idx=256
+        vocab_size=256
         with open(model_file, 'r', encoding='utf-8') as f:
             # read the version
             version=f.readline().strip()
             assert version=='minbpe v1'
             # read the pattern
             self.pattern=f.readline().strip()
+            # read vocabulary size
+            vocab_size=int(f.readline().strip())
             # read special tokens
             num_special=int(f.readline().strip())
             for _ in range(num_special):
@@ -142,4 +147,5 @@ class Tokenizer:
         self.merges=merges
         self.special_tokens=special_tokens
         self.vocab=self._build_vocab()
+        self.vocab_size=vocab_size
             
