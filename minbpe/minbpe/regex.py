@@ -18,6 +18,17 @@ GPT2_SPLIT_PATTERN = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}
 GPT4_SPLIT_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
 # The optimized, secure modern standard
 OPT_SPLIT_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}\p{M}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}\p{M}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
+GPT5_SPLIT_PATTERN= "|".join(
+        [
+            r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?""",
+            r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?""",
+            r"""\p{N}{1,3}""",
+            r""" ?[^\s\p{L}\p{N}]+[\r\n/]*""",
+            r"""\s*[\r\n]+""",
+            r"""\s+(?!\S)""",
+            r"""\s+""",
+        ]
+    )
 
 class RegexTokenizer(Tokenizer):
 
@@ -27,7 +38,7 @@ class RegexTokenizer(Tokenizer):
         - special_tokens: str->int dictionary of special tokens, e.g., {'<|endoftext|>':100257}
         """
         super().__init__()
-        self.pattern=GPT4_SPLIT_PATTERN if pattern is None else pattern
+        self.pattern=GPT5_SPLIT_PATTERN if pattern is None else pattern
         self.compiled_pattern=re.compile(self.pattern)
         self.special_tokens={}
         self.inverse_special_tokens={}
