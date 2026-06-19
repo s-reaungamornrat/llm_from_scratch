@@ -1,8 +1,41 @@
 import unicodedata
+import regex as re
 from collections import Counter
 
+def clean_text(text:str, remove_ctrls=False)->str:
+    """Remove invalid Unicode characters. They are internally UTF-16 and UTF-8 refuses to encode them
+    Args:
+        remove_ctrls (bool): Whether to remove control characters
+    Returns:
+        (str): Text after removing invalid Unicode characters
+    Examples:
+        >>> text = "\ud83d\ude00"  # surrogate pair for 😀, but stored incorrectly
+        >>> text.encode('utf-8')
+        UnicodeEncodeError: 'utf-8' codec can't encode characters in position 0-1: surrogates not allowed
+        >>> clean_text(text).encode('utf-8')
+        b'\xf0\x9f\x98\x80'
+        >>> clean_text(text).encode('utf-8').decode('utf-8')
+        >>> '😀'
+        
+        >>> text = "\ud83d\ude00 hello \ud800"
+        >>> text.encode('utf-8')
+        UnicodeEncodeError: 'utf-8' codec can't encode characters in position 0-1: surrogates not allowed
+        >>> clean_text(text).encode('utf-8')
+        b'\xf0\x9f\x98\x80 hello \xef\xbf\xbd'
+        >>> clean_text(text).encode('utf-8').decode('utf-8')
+        '😀 hello �'
+    """
+    _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+    
+    # conver valid utf-16 surrogate pairs into real unicode characters
+    # replace lone/broken surrogates with �
+    text=text.encode("utf-16", "surrogatepass").decode('utf-16', "replace")
+    text=unicodedata.normalize("NFC", text) # normalize unicode representation
+    text=_CONTROL_CHARS.sub(" ", text) #  remove control characters, but keep \n and \t
+    return text
+    
 def replace_control_characters(s:str)->str:
-    # we don't wabt to print control characters
+    # we don't want to print control characters
     # which distort the output (e.g., \n or much more)
     # https://stackoverflow.com/questions/4324790/removing-control-characters-from-a-string-in-python/19016117#19016117
     # http://www.unicode.org/reports/tr44/#GC_Values_Table

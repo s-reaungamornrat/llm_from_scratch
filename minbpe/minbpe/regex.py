@@ -10,7 +10,7 @@ Unlike BasicTokenizer
 """
 
 import regex as re
-from .base import Tokenizer, get_stats, merge
+from .base import Tokenizer, get_stats, merge, clean_text
 
 # the main GPT text split patterns, see
 # https://github.com/openai/tiktoken/blob/main/tiktoken_ext/openai_public.py
@@ -54,12 +54,22 @@ class RegexTokenizer(Tokenizer):
         assert vocab_size>=256
         num_merges=vocab_size-256
         
+        # clean text 
+        print("In regex.train starts cleanning text")
+        text=clean_text(text)
+        print("In regex.train finishes cleanning text")
+        
         # split the text up into text chunks, i.e., list of each individual words, marks, symbols, e.g., ['copy', 'waste', ',', ' as',...]
         text_chunks=re.findall(self.compiled_pattern, text) 
         
         # input text preprocessing, producing list of list[int], where each list[int] corresponding to each chunk (individual words, marks, ...)
-        ids=[list(ch.encode('utf-8')) for ch in text_chunks] 
-        
+        #ids=[list(ch.encode('utf-8')) for ch in text_chunks] 
+        # this is slower than the above statement, but we want to see whether what causes errors if there are
+        ids=[]
+        for chunk in text_chunks: 
+            try: chunk=chunk.encode('utf-8')
+            except UnicodeEncodeError as err: print(f"UTF-8 encoding error for {chunk}\n{err}"); continue
+            ids+=[ list(chunk) ]
         # iterative merge the most common pairs to create new tokens
         merges={} # (int, int)->
         vocab={idx:bytes([idx]) for idx in range(256)} # idx->bytes
