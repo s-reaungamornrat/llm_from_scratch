@@ -8,6 +8,8 @@ Unlike BasicTokenizer
 - RegexTokenizer handles an optional regex splitting pattern.
 - RegexTokenizer handles optional special tokens.
 """
+import os
+from sys import platform
 
 import regex as re
 from .base import Tokenizer, get_stats, merge, clean_text
@@ -49,7 +51,9 @@ class RegexTokenizer(Tokenizer):
         self.special_tokens=special_tokens
         self.inverse_special_tokens={v:k for k, v in special_tokens.items()}
 
-    def train(self, text, vocab_size, verbose=False):
+    def train(self, text, vocab_size, verbose=False, print_freq=0):
+        
+        if verbose: print(f"In regex.train: start training!!", flush=True)
         
         assert vocab_size>=256
         num_merges=vocab_size-256
@@ -90,9 +94,12 @@ class RegexTokenizer(Tokenizer):
             merges[pair]=idx
             vocab[idx]=vocab[pair[0]]+vocab[pair[1]]
             # prints
-            if verbose:
-                print(f"merge {i+1}/{num_merges}: {pair}->{idx} ({vocab[idx]}) had {stats[pair]} occurrences")
-        
+            if verbose and (print_freq==0 or (i+1)%print_freq==0):
+                print(f"merge {i+1}/{num_merges}: {pair}->{idx} ({vocab[idx]}) had {stats[pair]} occurrences", flush=True)
+                if platform == "linux" or platform == "linux2":
+                    total, used, free = map(int, os.popen('free -t -m').readlines()[-1].split()[1:])
+                    print(f"memory used {round((used / total) * 100, 2)} and free {round((free / total) * 100, 2)}", flush=True)
+
         # save class variables
         self.merges=merges # used in encode()
         self.vocab=vocab # used in decode()
