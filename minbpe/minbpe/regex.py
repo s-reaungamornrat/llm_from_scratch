@@ -59,9 +59,9 @@ class RegexTokenizer(Tokenizer):
         num_merges=vocab_size-256
         
         # clean text 
-        print("In regex.train starts cleanning text")
+        print("In regex.train starts cleanning text", flush=True)
         text=clean_text(text)
-        print("In regex.train finishes cleanning text")
+        print("In regex.train finishes cleanning text", flush=True)
         
         # split the text up into text chunks, i.e., list of each individual words, marks, symbols, e.g., ['copy', 'waste', ',', ' as',...]
         text_chunks=re.findall(self.compiled_pattern, text) 
@@ -205,3 +205,4 @@ class RegexTokenizer(Tokenizer):
         text_bytes=b"".join(part_bytes)
         text=text_bytes.decode("utf-8", errors='replace')
         return text
+        

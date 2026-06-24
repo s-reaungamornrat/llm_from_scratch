@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from llm_from_scratch.CH5.loss import calc_loss_batch, calc_loss_loader
 from llm_from_scratch.CH4.gpt import generate_text_simple
@@ -41,11 +42,15 @@ def evaluate_model(model, train_loader, val_loader, device, eval_iter=None):
     """
     Args:
         eval_iter (int): Number of evaluation iterations. If None, use the whole batch
+    Returns:
+        (tuple[float]): Train and validation losses if train_loader is not None, else a tuple of None and floating-point
     """
+    train_loss=None
+    
     # disable dropout during evaluation for stable and reproducible results
     model.eval()
     with torch.no_grad(): # disable gradient tracking 
-        train_loss=calc_loss_loader(train_loader, model, device, num_batches=eval_iter)
+        if train_loader is not None: train_loss=calc_loss_loader(train_loader, model, device, num_batches=eval_iter)
         val_loss=calc_loss_loader(val_loader, model, device, num_batches=eval_iter)
 
     model.train()
@@ -54,7 +59,11 @@ def evaluate_model(model, train_loader, val_loader, device, eval_iter=None):
 
 def generate_and_print_sample(model, tokenizer, device, start_context):
     model.eval()
-    context_size=model.pos_emb.weight.shape[0]
+    if isinstance(model, DDP):
+        context_size=model.module.pos_emb.weight.shape[0] if hasattr(model.module, 'pos_emb') else model.cfg['context_length']
+    else:
+        context_size=model.pos_emb.weight.shape[0] if hasattr(model, 'pos_emb') else model.cfg['context_length']
+        
     encoded=text_to_token_ids(start_context, tokenizer).to(device)
     with torch.no_grad():
         token_ids=generate_text_simple(model=model, idx=encoded, max_new_tokens=50, context_size=context_size)

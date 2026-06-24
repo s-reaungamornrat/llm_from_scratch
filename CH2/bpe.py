@@ -5,7 +5,7 @@ import json
 
 class BPETokenizerSimple:
 
-    def __init__(self, replace_space="Ġ"):
+    def __init__(self, replace_space=None):
         # map token_id to token_str (e.g., {11246:"some"})
         self.vocab={}
         # map token_str to token_id (e.g., {'some':11246})

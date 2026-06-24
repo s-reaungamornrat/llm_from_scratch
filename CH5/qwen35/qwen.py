@@ -86,6 +86,10 @@ class Qwen3_5Model(nn.Module):
         self.cfg=cfg
         self.current_pos=0
 
+
+    def get_num_layers(self): return len(self.trf_blocks)
+    def no_weight_decay(self): return {'tok_emb'}
+    
     def create_mask(self, cur_len, device, pos_start=0, pos_end=None):
         """
         Args:

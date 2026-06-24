@@ -37,7 +37,7 @@ class Qwen3_5Tokenizer:
         else: eos_token="<|endoftext|>"
         if eos_token in self._special_to_id: self.eos_token_id=self._special_to_id[eos_token]
 
-    def encode(self, text, chat_wrapped=None):
+    def encode(self, text, chat_wrapped=None, allowed_special=None):
         if chat_wrapped is None: chat_wrapped=self.apply_chat_template
 
         stripped=text.strip()
