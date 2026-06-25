@@ -60,7 +60,8 @@ def evaluate_model(model, train_loader, val_loader, device, eval_iter=None):
 def generate_and_print_sample(model, tokenizer, device, start_context):
     model.eval()
     if isinstance(model, DDP):
-        context_size=model.module.pos_emb.weight.shape[0] if hasattr(model.module, 'pos_emb') else model.cfg['context_length']
+        context_size=( model.module.pos_emb.weight.shape[0] if hasattr(model.module, 'pos_emb') 
+                                                           else model.module.cfg['context_length'] )
     else:
         context_size=model.pos_emb.weight.shape[0] if hasattr(model, 'pos_emb') else model.cfg['context_length']
         
