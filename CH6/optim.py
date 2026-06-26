@@ -21,7 +21,7 @@ class LayerDecayValueAssigner(object):
     def get_scale(self, layer_id): return self.values[layer_id]
     def get_layer_id(self, var_name): return get_num_layer_for_transformers(var_name, len(self.values))
 
-def get_parameter_groups(model, weight_decay=1e-5, skip_list=(), get_num_layer=None, get_layer_scale=None):
+def get_parameter_groups(model, weight_decay=1e-5, skip_list=(), get_num_layer=None, get_layer_scale=None, verbose=False):
     """ Divide parameters into a set with weight_decay imposed and set without. The set that will not have weight decay includes those
     that are 1D parameters, bias, scale, and those in skip_list
     Args:
@@ -61,10 +61,11 @@ def get_parameter_groups(model, weight_decay=1e-5, skip_list=(), get_num_layer=N
         parameter_group_names[group_name]['params'].append(name)
         parameter_group_vars[group_name]['params'].append(param)
     
-    print(f"Param group {json.dumps(parameter_group_names, indent=2)}")
+    if verbose: print(f"Param group {json.dumps(parameter_group_names, indent=2)}")
     return list(parameter_group_vars.values())
 
-def create_optimizer(model, weight_decay, lr, get_num_layer=None, get_layer_scale=None, filter_bias_and_bn=True, skip_list=None):
+def create_optimizer(model, weight_decay, lr, get_num_layer=None, get_layer_scale=None, filter_bias_and_bn=True, skip_list=None, 
+                     verbose=False):
     """Build and return AdamW optimizer, supporting layer-wise learning rate scaling and weight decay filtering
     
     It supports Layer-wise learning rate decay (LLRD) during fine tuning. The core idea is the earlier layers (closer to the input)
@@ -85,7 +86,7 @@ def create_optimizer(model, weight_decay, lr, get_num_layer=None, get_layer_scal
         skip=set()
         if skip_list is not None: skip|=({skip_list} if not isinstance(skip_list, set) else skip_list)
         if hasattr(model, 'no_weight_decay'): skip|=model.no_weight_decay()
-        parameters=get_parameter_groups(model, weight_decay, skip, get_num_layer, get_layer_scale)
+        parameters=get_parameter_groups(model, weight_decay, skip, get_num_layer, get_layer_scale, verbose=verbose)
         weight_decay=0.
     else: parameters=model.parameters()
     opt_args=dict(lr=lr, weight_decay=weight_decay)
